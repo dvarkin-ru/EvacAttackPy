@@ -7,9 +7,20 @@ import math
 
 scale = 50
 
+def _point_in_polygon(point, zone_points):
+    """
+    Проверка вхождения точки в прямоугольник
+    """
+    c = False
+    for p1, p2 in zip(zone_points, zone_points[1:]+zone_points[:1]):
+        if math.dist(p1, point) + math.dist(point, p2) == math.dist(p1, p2):
+            return True
+        if ( ((p1[1] > point[1]) != (p2[1]>point[1])) and (point[0] < (p2[0]-p1[0]) * (point[1]-p1[1]) / (p2[1]-p1[1]) + p1[0]) ):
+            c = not c
+    return c
+
 def visualization(moving):
     # находим offset для canvas
-    text_id = dict()
     min_x, min_y, max_x, max_y = 0, 0, 0, 0
     for lvl in moving.bim['Level']:
         for el in lvl['BuildElement']:
@@ -52,7 +63,7 @@ def visualization(moving):
     time_lbl = tkinter.Label(root, justify=tkinter.CENTER, text='Визуализация не начата')
     time_lbl.pack()
     # Tkinter окно для каждого этажа
-    cs = []
+    cs = [] # пары этаж-canvas
     for lvl in moving.bim["Level"]:
         top = tkinter.Toplevel()
         top.title(lvl[moving.lvlname])
@@ -69,6 +80,7 @@ def visualization(moving):
         c.pack(side=tkinter.LEFT,expand=True,fill=tkinter.BOTH)
         cs.append((lvl, c))
 
+    text_id = dict() # id текстовых объектов на каждом canvas
     # Рисуем фон
     colors = {"Room": "", "DoorWayInt": "yellow", "DoorWayOut": "brown", "DoorWay": "", "Staircase": "green"}
     path_colors = ("red", "green", "blue")
@@ -78,16 +90,14 @@ def visualization(moving):
         for el in lvl['BuildElement']:
             p = c.create_polygon([crd(x,y) for x, y in points(el)], fill=colors[el['Sign']], outline='black')
 ##            c.tag_bind(p, "<Button-1>", lambda e, el_id=el['Id']: onclick(el_id))
-            t = c.create_text(cntr(el), text="{:6.2f}".format(el['NumPeople']))
-            texts[el["Id"]] = t
+            texts[el["Id"]] = c.create_text(cntr(el), text="{:6.2f}".format(el['NumPeople']))
             if 'Door' in el["Sign"]:
-                # TODO: стрелочка по стороне проёма
-                c_door = crd(*points(el)[0])
-                c_up = cntr(m.zones[m.transits[el["Id"]]["Output"][0]])
-                v = (c_door[0]-c_up[0], c_door[1]-c_up[1])
-                unit_vector = (v[0]/math.dist(c_door, c_up), v[1]/math.dist(c_door, c_up))
-                c_up = (c_door[0]-unit_vector[0]*scale, c_door[1]-unit_vector[1]*scale)
-                c.create_line(c_door, c_up, arrow=tkinter.FIRST)
+                zps = points(m.zones[m.transits[el["Id"]]["Output"][0]])
+                ps = points(el)
+                for p1, p2 in zip(ps, ps[1:]+ps[:1]):
+                    if _point_in_polygon(p1, zps) and not _point_in_polygon(p2, zps):
+                        c.create_line(crd(*p1), crd(*p2), arrow=tkinter.LAST)
+                        break
 ##        for i, path in enumerate(paths): 
 ##            for path_from, path_to in zip(path, path[1:]):
 ##                if is_el_on_lvl(path_from, lvl) or is_el_on_lvl(path_to, lvl):
