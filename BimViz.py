@@ -33,7 +33,7 @@ def visualization(moving):
 
     def crd(x, y):
         ''' Перевод из координат здания в координаты canvas '''
-        return (x+offset_x)*scale, (y+offset_y)*scale
+        return (offset_x+x)*scale, (offset_y-y)*scale
 
     def cntr(el):
         ''' Центр для canvas по координатам здания '''
@@ -69,7 +69,7 @@ def visualization(moving):
         top.title(lvl[moving.lvlname])
         frame=tkinter.Frame(top)
         frame.pack(expand=True, fill=tkinter.BOTH)
-        c = tkinter.Canvas(frame, scrollregion=(*crd(min_x, min_y), *crd(max_x, max_y)))
+        c = tkinter.Canvas(frame, scrollregion=(*crd(min_x, max_y), *crd(max_x, min_y)))
         v = tkinter.Scrollbar(frame, orient = 'vertical')
         v.pack(side=tkinter.RIGHT, fill = tkinter.Y)
         v.config(command=c.yview)
