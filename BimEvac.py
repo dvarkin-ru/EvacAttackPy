@@ -165,6 +165,7 @@ class Moving(object):
             t["NumPeople"] = 0.0
         for z in self.zones.values():
             z["IsVisited"] = False
+            z["Potential"] = math.inf
 
         zones_to_process = self.safety_zones.copy()
         self._step_counter[1] = 0
@@ -185,7 +186,6 @@ class Moving(object):
                     giving_zone = self.zones[transit["Output"][1]]
                     transit_dir = -1
 
-                giving_zone["Potential"] = self.potential(receiving_zone, giving_zone, transit["Width"])
                 moved_people = self.part_of_people_flow(receiving_zone, giving_zone, transit)
                 # print(giving_zone.num_of_people, receiving_zone.num_of_people, moved_people)
 
@@ -206,6 +206,10 @@ class Moving(object):
 
                 if len(giving_zone["Output"]) > 1:  # отсекаем помещения, в которых одна дверь
                     zones_to_process.append(giving_zone)
+
+                new_pot = self.potential(receiving_zone, giving_zone, transit["Width"])
+                if new_pot < giving_zone["Potential"]:
+                    giving_zone["Potential"] = new_pot
                 zones_to_process.sort(key=lambda d: d["Potential"])
 
                 self._step_counter[2] += 1
