@@ -151,8 +151,11 @@ class Moving(object):
         for t in self.transits.values():
             t["IsBlocked"] = False
             t["NumPeople"] = 0.0
+            t_points = points(t)
+            t["Width"] = max(math.dist(p1,p2) for p1, p2 in zip(t_points, t_points[1:]+t_points[:1]))
         for z in self.zones.values():
             z["IsBlocked"] = False
+            z["Area"] = room_area(z)
         self.time = 0.0
 
     def step(self):
@@ -195,8 +198,8 @@ class Moving(object):
                 # self.direction_pairs[transit.id] = (giving_zone, receiving_zone)
 
                 if receiving_zone not in self.safety_zones:
-                    receiving_zone["Density"] = receiving_zone["NumPeople"] / room_area(receiving_zone)
-                giving_zone["Density"] = giving_zone["NumPeople"] / room_area(giving_zone)
+                    receiving_zone["Density"] = receiving_zone["NumPeople"] / receiving_zone["Area"]
+                giving_zone["Density"] = giving_zone["NumPeople"] / giving_zone["Area"]
 
                 giving_zone["IsVisited"] = True
                 transit["IsVisited"] = True
@@ -245,12 +248,10 @@ class Moving(object):
         # Ширина перехода между зонами зависит от количества человек,
         # которое осталось в помещении. Если там слишком мало людей,
         # то они переходя все сразу, чтоб не дробить их
-        door_points = points(transit)
-        door_width = max(math.dist(p1,p2) for p1, p2 in zip(door_points, door_points[1:]+door_points[:1]))
-        speedatexit = self.speed_at_exit(rzone, gzone, door_width)
+        speedatexit = self.speed_at_exit(rzone, gzone, transit["Width"])
 
         # Кол. людей, которые могут покинуть помещение за шаг моделирования
-        part_of_people_flow = self.change_numofpeople(gzone, door_width, speedatexit)
+        part_of_people_flow = self.change_numofpeople(gzone, transit["Width"], speedatexit)
         if gzone["Density"] <= min_density_gzone:
             if part_of_people_flow > gzone["NumPeople"]:
                 print("===WTF!===")
@@ -266,7 +267,7 @@ class Moving(object):
         # иначе вмещает только возможное количество.
         if rzone in self.safety_zones:
             return part_of_people_flow
-        max_numofpeople = self.MAX_DENSIY * room_area(rzone)
+        max_numofpeople = self.MAX_DENSIY * rzone["Area"]
         capacity_reciving_zone = max_numofpeople - rzone["NumPeople"]
         # Такая ситуация возникает при плотности в принимающем помещении более Dmax чел./м2
         # Фактически capacity_reciving_zone < 0 означает, что помещение не может принять людей
@@ -288,7 +289,7 @@ class Moving(object):
 
     def set_people_by_density(self):
         for z in self.zones.values():
-            z["NumPeople"] = z["Density"] * room_area(z)
+            z["NumPeople"] = z["Density"] * z["Area"]
         
 
 
