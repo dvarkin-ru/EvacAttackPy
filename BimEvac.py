@@ -146,7 +146,7 @@ class Moving(object):
                 if "ZLevel" not in el:
                     el["ZLevel"] = lvl["ZLevel"]
         self.lvlname = 'NameLevel' if bim['Level'][0].get('NameLevel') else 'Name'
-        self.safety_zones = [{"Output": [key,], "ZLevel": val["ZLevel"], "NumPeople": 0.0, "Sign": "SZ"}
+        self.safety_zones = [{"Output": [key,], "ZLevel": val["ZLevel"], "NumPeople": 0.0, "Sign": "SZ", "Potential": 0.0}
                              for key, val in self.transits.items() if val['Sign'] == "DoorWayOut"]
         for t in self.transits.values():
             t["IsBlocked"] = False
@@ -185,7 +185,7 @@ class Moving(object):
                     giving_zone = self.zones[transit["Output"][1]]
                     transit_dir = -1
 
-                # giving_zone.potential = self.potential(receiving_zone, giving_zone, transit.width)
+                giving_zone["Potential"] = self.potential(receiving_zone, giving_zone, transit["Width"])
                 moved_people = self.part_of_people_flow(receiving_zone, giving_zone, transit)
                 # print(giving_zone.num_of_people, receiving_zone.num_of_people, moved_people)
 
@@ -206,11 +206,16 @@ class Moving(object):
 
                 if len(giving_zone["Output"]) > 1:  # отсекаем помещения, в которых одна дверь
                     zones_to_process.append(giving_zone)
+                zones_to_process.sort(key=lambda d: d["Potential"])
 
                 self._step_counter[2] += 1
 
             self._step_counter[1] += 1
         self.time += self.MODELLING_STEP
+
+    def potential(self, rzone, gzone, twidth):
+        p = math.sqrt(gzone["Area"]) / self.speed_at_exit(rzone, gzone, twidth)
+        return rzone["Potential"] + p
 
     def speed_at_exit(self, rzone, gzone, twidth):
         # Определение скорости на выходе из отдающего помещения
