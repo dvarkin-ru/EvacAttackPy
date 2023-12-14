@@ -7,10 +7,18 @@ def points(el):
     else:
         return el["XY"][0][:-1]
 
+
 def room_area(el):
     # print(xy)
     xy = points(el)
     return math.fabs(0.5*sum((x1*y2-x2*y1 for (x1,y1),(x2,y2) in zip(xy, xy[1:]+xy[:1]))))
+
+
+def cntr_real(el):
+    ''' Центр в координатах здания '''
+    xy = points(el)
+    return sum((x for x, y in xy)) / len(xy), sum((y for x, y in xy)) / len(xy)
+
 
 class PeopleFlowVelocity(object):
     ROOM, TRANSIT, STAIR_UP, STAIR_DOWN = range(4)
@@ -138,14 +146,14 @@ class Moving(object):
         self.pfv = PeopleFlowVelocity(projection_area=0.1)
         self._step_counter = [0, 0, 0]
         self.direction_pairs = {}
-        self.zones = {el["Id"]:el for lvl in bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('Room', 'Staircase')}
-        self.transits = {el["Id"]:el for lvl in bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('DoorWayInt', 'DoorWay', 'DoorWayOut')}
+        self.zones = {el["Id"]:el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('Room', 'Staircase')}
+        self.transits = {el["Id"]:el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('DoorWayInt', 'DoorWay', 'DoorWayOut')}
         # Заполняем высоту
-        for lvl in bim['Level']:
+        for lvl in self.bim['Level']:
             for el in lvl['BuildElement']:
                 if "ZLevel" not in el:
                     el["ZLevel"] = lvl["ZLevel"]
-        self.lvlname = 'NameLevel' if bim['Level'][0].get('NameLevel') else 'Name'
+        self.lvlname = 'NameLevel' if self.bim['Level'][0].get('NameLevel') else 'Name'
         self.safety_zones = [{"Output": [key,], "ZLevel": val["ZLevel"], "NumPeople": 0.0, "Sign": "SZ", "Potential": 0.0}
                              for key, val in self.transits.items() if val['Sign'] == "DoorWayOut"]
         for t in self.transits.values():
@@ -181,10 +189,12 @@ class Moving(object):
                 transit_dir = 1
                 if giving_zone == receiving_zone:
                     if len(transit["Output"]) < 2:
-                        ## TODO: do something?
+                        # TODO: do something?
                         continue
                     giving_zone = self.zones[transit["Output"][1]]
                     transit_dir = -1
+                if giving_zone["IsBlocked"]:
+                    continue
 
                 moved_people = self.part_of_people_flow(receiving_zone, giving_zone, transit)
                 # print(giving_zone.num_of_people, receiving_zone.num_of_people, moved_people)
@@ -232,7 +242,7 @@ class Moving(object):
         # По умолчанию, используется скорость движения по горизонтальной поверхности
         v_zone = self.pfv.speed_in_room(gzone["Density"])
 
-        dh = rzone["ZLevel"] - gzone["ZLevel"] # Разница высот зон
+        dh = rzone["ZLevel"] - gzone["ZLevel"]  # Разница высот зон
         # Если принимающее помещение является лестницей и находится на другом уровне,
         # то скорость будет рассчитываться как по наклонной поверхности
         if abs(dh) > 1e-3 and rzone["Sign"] == "Staircase":
@@ -299,13 +309,12 @@ class Moving(object):
     def set_people_by_density(self):
         for z in self.zones.values():
             z["NumPeople"] = z["Density"] * z["Area"]
-        
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Bim modeling of evacuation when attack')
-    parser.add_argument('file', type=argparse.FileType('r')) # file already opened by argparse
+    parser.add_argument('file', type=argparse.FileType('r'))  # file already opened by argparse
     args = parser.parse_args()
 
     bim = json.load(args.file)
@@ -317,15 +326,15 @@ if __name__ == "__main__":
     #     # if '5c4f4' in str(z.id):
     #     # if '7e466' in str(z.id) or '02707' in str(z.id):
     #     z.num_of_people = density * z.area
-    
+
     D_corridor_m2m2 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]  # м2/м2
-    D = [i/100 for i in range(1, 16)]
-    D_cor = [d/0.1 for d in D_corridor_m2m2]
+    D = [i / 100 for i in range(1, 16)]
+    D_cor = [d / 0.1 for d in D_corridor_m2m2]
     D_dis = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]  # ч/м2
     T_corridor = [15.0, 20.0, 25.5, 30.0, 36.4, 42.9, 52.2, 63.2, 80.0]  # сек.
-    T_c_cor  = [18.6, 24.0, 29.4, 35.4, 42.6, 50.4, 58.2, 66.6, 74.4]
+    T_c_cor = [18.6, 24.0, 29.4, 35.4, 42.6, 50.4, 58.2, 66.6, 74.4]
     # T_c_3 = [886.8, 1748.4, 2602.2, 3432.0, 4229.4, 5074.2, 5919.0, 6764.4, 7609.8]
-    T_dis = [55,  60,  65,  70,  75,  80,  85,  90,  95,  100, 105, 110, 115]
+    T_dis = [55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115]
     T_c_dis = [175.20, 195.60, 214.2, 229.20, 244.20, 260.40, 273.00, 286.80, 303.60, 315.00, 330.00, 346.20, 370.20]
 
     times = []  # сек.
@@ -404,7 +413,6 @@ if __name__ == "__main__":
             ax.plot(D, times, linewidth=2.0, label="EvacuationPy")
             plt.xticks(D)
             plt.xlim([D[0], D[-1]])
-            
 
         plt.ylim(bottom=0)
         plt.grid(True)
