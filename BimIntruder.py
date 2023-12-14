@@ -107,7 +107,7 @@ class Intruder:
                     return [back]
             return []  # ???
 
-    def __init__(self, j, choosen_door, disabled_rooms=[]):
+    def __init__(self, j, choosen_door, disabled_rooms=[], precalculate_path=False):
         self.intruder_type = 1
         self.j = j
         self.disabled_rooms = disabled_rooms
@@ -116,15 +116,20 @@ class Intruder:
         top_room["GLevel"] = 0
         self.bfs(top_room, [], {})
         self.max_lvl = max((e["GLevel"] for lvl in self.j['Level'] for e in lvl['BuildElement'] if e.get("GLevel")))
-        # print("Max level:", max_lvl)
         self.bim_visits = {e['Id']: 0 for lvl in self.j['Level'] for e in lvl['BuildElement']}
-        # best_path, best_eff = self.step(self.get_el(top_door["Id"]), top_room, self.bim_visits, [])
         self.bim_curr_path = [top_door, top_room]
-        # for el in self.bim_curr_path:
         self.bim_visits[top_door["Id"]] += 1
         self.bim_visits[top_room["Id"]] += 1
+        self.speed = 100.0
+        self.precalculate_path = precalculate_path
+        if precalculate_path:
+            self.p_path = self.step(self.get_el(top_door["Id"]), top_room, self.bim_visits.copy(), [])[0][1:]
+
 
     def step_next(self):
+        if self.precalculate_path:
+            self.bim_curr_path.append(self.p_path.pop(0))
+            return
         from_room, to_room = self.bim_curr_path[-2:]
         best_path, best_eff = self.step(from_room, to_room, self.bim_visits.copy(), [])
         if len(best_path) > 1:
@@ -132,13 +137,9 @@ class Intruder:
             self.bim_curr_path += [best_path[1]]
 
     def path_len(self):
-        p = self.bim_curr_path
         len_path = 0
-        for i in range(len(self.bim_curr_path)-2):
-            door1, door2 = self.get_door(p[i], p[i+1]), self.get_door(p[i+1], p[i+2])
-            if not door1:
-                door1 = p[i]
-            len_path += math.dist(cntr_real(door1), cntr_real(door2))
+        for a, b in zip(self.bim_curr_path, self.bim_curr_path[1:]):
+            len_path += math.dist(cntr_real(a), cntr_real(b))
         return len_path
 
     def get_out_doors(self):

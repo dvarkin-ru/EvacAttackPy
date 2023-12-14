@@ -158,11 +158,13 @@ class Moving(object):
                              for key, val in self.transits.items() if val['Sign'] == "DoorWayOut"]
         for t in self.transits.values():
             t["IsBlocked"] = False
+            t["IsVisited"] = False
             t["NumPeople"] = 0.0
             t_points = points(t)
             t["Width"] = max(math.dist(p1,p2) for p1, p2 in zip(t_points, t_points[1:]+t_points[:1]))
         for z in self.zones.values():
             z["IsBlocked"] = False
+            z["IsVisited"] = False
             z["Area"] = room_area(z)
         self.time = 0.0
 

@@ -1,6 +1,5 @@
 import tkinter
-from tkinter.messagebox import showerror, showwarning, showinfo
-import argparse
+from tkinter import filedialog
 import json
 from BimEvac import Moving, points
 from BimIntruder import Intruder
@@ -31,7 +30,7 @@ def _point_in_polygon(point, zone_points):
     return c
 
 
-def visualization(moving, intruder):
+def visualization(moving, intruder, is_evac=True):
     # находим offset для canvas
     min_x, min_y, max_x, max_y = 0, 0, 0, 0
     for lvl in moving.bim['Level']:
@@ -55,34 +54,49 @@ def visualization(moving, intruder):
     i_room = intruder.bim_curr_path[-1]["Id"]
     intruder.victims = moving.zones[i_room]["NumPeople"]
     moving.zones[i_room]["NumPeople"] = 0
+    moving.zones[i_room]["Density"] = 0
     moving.zones[i_room]["IsBlocked"] = True
 
     def vis_step():
-        nonlocal i_room
-        moving.step()
-        if intruder.path_len()/100 < moving.time:
+        nonlocal i_room, is_evac
+        if is_evac:
+            moving.step()
+        else:
+            moving.time += moving.MODELLING_STEP
+        if intruder.path_len()/intruder.speed < moving.time:
             intruder.step_next()
             moving.zones[i_room]["IsBlocked"] = False
             i_room = intruder.bim_curr_path[-1]["Id"]
             moving.zones[i_room]["IsBlocked"] = True
             intruder.victims += moving.zones[i_room]["NumPeople"]
             moving.zones[i_room]["NumPeople"] = 0
+            moving.zones[i_room]["Density"] = 0
             intr_line(intruder.bim_curr_path[-2], intruder.bim_curr_path[-1])
-            intr_lbl.config(text="Кол-во жертв: "+str(int(intruder.victims)))
+            intr_lbl.config(text="Ущерб: "+str(int(intruder.victims)))
 
         time_lbl.config(text="Визуализация идёт {:6.2f} секунд".format(moving.time*60))
         for lvl, c in cs:
             texts = text_id[lvl[moving.lvlname]]
+            arrows = arrow_id[lvl[moving.lvlname]]
             for el in lvl['BuildElement']:
                 e = el["Id"]
                 if e in moving.transits:
-                    c.itemconfigure(texts[e], text="{:6.2f}".format(moving.transits[e]["NumPeople"]))
+                    c.itemconfigure(texts[e], text="{:6.2f}".format(abs(moving.transits[e]["NumPeople"])))
+                    if abs(moving.transits[e]["NumPeople"]) < 0.0001:
+                        c.itemconfigure(arrows[e], arrow=tkinter.NONE)
+                    elif moving.transits[e]["NumPeople"] > 0:
+                        c.itemconfigure(arrows[e], arrow=tkinter.LAST)
+                    elif moving.transits[e]["NumPeople"] < 0:
+                        c.itemconfigure(arrows[e], arrow=tkinter.FIRST)
                 if e in moving.zones:
                     c.itemconfigure(texts[e], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
         nop = sum([x["NumPeople"] for x in moving.zones.values() if x["IsVisited"]])
-        if nop <= 0:
+        if intruder.precalculate_path and not intruder.p_path:
+            tkinter.messagebox.showinfo("Визуализация окончена", f"Ущерб {int(intruder.victims)} чел.")
+            root.destroy()
+        elif is_evac and nop <= 0:
             nop_sz = sum(z["NumPeople"] for z in m.safety_zones)
-            showinfo("Визуализация окончена", f"Количество человек: {nop_sz:.{5}} Длительность эвакуации: {moving.time*60:.{5}} с. ({moving.time:.{5}} мин.)")
+            tkinter.messagebox.showinfo("Визуализация окончена", f"Ущерб: {int(intruder.victims)} чел. Длительность эвакуации: {moving.time*60:.{5}} с. ({moving.time:.{5}} мин.)")
             root.destroy()
 
     root = tkinter.Tk()
@@ -90,7 +104,7 @@ def visualization(moving, intruder):
     tkinter.Button(text="Шаг", command=vis_step).pack()
     time_lbl = tkinter.Label(root, justify=tkinter.CENTER, text='Визуализация не начата')
     time_lbl.pack()
-    intr_lbl = tkinter.Label(text="Кол-во жертв: "+str(int(intruder.victims)))
+    intr_lbl = tkinter.Label(text="Ущерб: "+str(int(intruder.victims)))
     intr_lbl.pack()
     # Tkinter окно для каждого этажа
     cs = []  # пары этаж-canvas
@@ -108,6 +122,7 @@ def visualization(moving, intruder):
         h.config(command=c.xview)
         c.config(xscrollcommand=h.set, yscrollcommand=v.set)
         c.pack(side=tkinter.LEFT, expand=True, fill=tkinter.BOTH)
+        top.attributes("-zoomed", True)
         cs.append((lvl, c))
 
     def intr_line(fr_room, to_room):
@@ -119,11 +134,14 @@ def visualization(moving, intruder):
     intr_line(intruder.bim_curr_path[-2], intruder.bim_curr_path[-1])
 
     text_id = dict()  # id текстовых объектов на каждом canvas
+    arrow_id = dict()
     # Рисуем фон
     colors = {"Room": "", "DoorWayInt": "yellow", "DoorWayOut": "brown", "DoorWay": "", "Staircase": "green"}
     for lvl, c in cs:
         texts = dict()
+        arrows = dict()
         text_id[lvl[moving.lvlname]] = texts
+        arrow_id[lvl[moving.lvlname]] = arrows
         for el in lvl['BuildElement']:
             c.create_polygon([crd(x,y) for x, y in points(el)], fill=colors[el['Sign']], outline='black')
             # c.tag_bind(p, "<Button-1>", lambda e, el_id=el['Id']: onclick(el_id))
@@ -136,8 +154,10 @@ def visualization(moving, intruder):
                 ps = points(el)
                 for p1, p2 in zip(ps, ps[1:]+ps[:1]):
                     if _point_in_polygon(p1, zps) and not _point_in_polygon(p2, zps):
-                        c.create_line(crd(*p1), crd(*p2), arrow=tkinter.LAST)
+                        arrows[el["Id"]] = c.create_line(crd(*p1), crd(*p2), arrow=tkinter.NONE)
                         break
+                if 'DoorWayOut' in el["Sign"]:
+                    c.itemconfigure(texts[el["Id"]], text=out_doors.index(el))
 ##        for i, path in enumerate(paths): 
 ##            for path_from, path_to in zip(path, path[1:]):
 ##                if is_el_on_lvl(path_from, lvl) or is_el_on_lvl(path_to, lvl):
@@ -147,15 +167,28 @@ def visualization(moving, intruder):
 
     root.mainloop()
 
-
-parser = argparse.ArgumentParser(description='Bim modeling of evacuation when attack')
-parser.add_argument('file', type=argparse.FileType('r'))  # file already opened by argparse
-args = parser.parse_args()
-
-m = Moving(json.load(args.file))
-m.set_density(1.0)
+filename = tkinter.filedialog.askopenfilename(filetypes=(("BIM JSON", "*.json"),))
+if not filename:
+    exit()
+with open(filename) as f:
+    j = json.load(f)
+    
+m = Moving(j)
+dens = tkinter.simpledialog.askfloat("Плотность", "Задайте плотность, чел/м2", initialvalue=0.5, minvalue=0.0, maxvalue=1.0)
+if dens is None:
+    exit()
+m.set_density(dens)
 m.set_people_by_density()
-i = Intruder(m.bim, 1)
 
-
-visualization(m, i)
+out_doors = [el for lvl in j['Level'] for el in lvl['BuildElement'] if el['Sign'] == "DoorWayOut"]
+door = tkinter.simpledialog.askinteger("Дверь нарушителя", "Задайте номер двери, через которую войдёт нарушитель (пронумерованы при запуске)", initialvalue=0, minvalue=0, maxvalue=len(out_doors))
+if door is None:
+    exit()
+i = Intruder(j, door, precalculate_path=True)
+i.speed = tkinter.simpledialog.askinteger("Скорость нарушителя", "Задайте скорость нарушителя, м/мин", initialvalue=60, minvalue=1, maxvalue=200)
+if i.speed is None:
+    exit()
+evac = tkinter.simpledialog.askinteger("Режим", "Задайте режим (0-без эвакуации, 1-с ней)", initialvalue=1, minvalue=0, maxvalue=1)
+if evac is None:
+    exit()
+visualization(m, i, is_evac=bool(evac))
