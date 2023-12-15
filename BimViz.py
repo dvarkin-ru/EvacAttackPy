@@ -4,6 +4,7 @@ import json
 from BimEvac import Moving, points
 from BimIntruder import Intruder
 import math
+from pprint import pformat
 
 scale = 50
 
@@ -91,13 +92,14 @@ def visualization(moving, intruder, is_evac=True):
                 if e in moving.zones:
                     c.itemconfigure(texts[e], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
         nop = sum([x["NumPeople"] for x in moving.zones.values() if x["IsVisited"]])
-        if intruder.precalculate_path and not intruder.p_path:
-            tkinter.messagebox.showinfo("Визуализация окончена", f"Ущерб {int(intruder.victims)} чел.")
-            root.destroy()
-        elif is_evac and nop <= 0:
-            nop_sz = sum(z["NumPeople"] for z in m.safety_zones)
-            tkinter.messagebox.showinfo("Визуализация окончена", f"Ущерб: {int(intruder.victims)} чел. Длительность эвакуации: {moving.time*60:.{5}} с. ({moving.time:.{5}} мин.)")
-            root.destroy()
+        if intruder.precalculate_path and intruder.p_path:
+            return
+        elif is_evac and nop > 0:
+            return
+        nop_sz = sum(z["NumPeople"] for z in m.safety_zones)
+        tkinter.messagebox.showinfo("Визуализация окончена", f"Ущерб: {int(intruder.victims)} чел. Длительность визуализации: {moving.time*60:.{5}} с. ({moving.time:.{5}} мин.)"
+                                    f" В безопасной зоне {int(nop_sz)} человек")
+        root.destroy()
 
     root = tkinter.Tk()
     root.title("Визуализация")
@@ -143,8 +145,8 @@ def visualization(moving, intruder, is_evac=True):
         text_id[lvl[moving.lvlname]] = texts
         arrow_id[lvl[moving.lvlname]] = arrows
         for el in lvl['BuildElement']:
-            c.create_polygon([crd(x,y) for x, y in points(el)], fill=colors[el['Sign']], outline='black')
-            # c.tag_bind(p, "<Button-1>", lambda e, el_id=el['Id']: onclick(el_id))
+            p = c.create_polygon([crd(x, y) for x, y in points(el)], fill=colors[el['Sign']], outline='black')
+            c.tag_bind(p, "<Button-1>", lambda e, el=el: tkinter.messagebox.showinfo("Инфо об объекте", pformat(el, compact=True, depth=2)))
             num_p = 0
             if el.get('NumPeople'):
                 num_p = el.get('NumPeople')
@@ -158,21 +160,15 @@ def visualization(moving, intruder, is_evac=True):
                         break
                 if 'DoorWayOut' in el["Sign"]:
                     c.itemconfigure(texts[el["Id"]], text=out_doors.index(el))
-##        for i, path in enumerate(paths): 
-##            for path_from, path_to in zip(path, path[1:]):
-##                if is_el_on_lvl(path_from, lvl) or is_el_on_lvl(path_to, lvl):
-##                    c.create_line(cntr(path_from), cntr(path_to), arrow=tkinter.LAST, fill=path_colors[i])
-##            if is_el_on_lvl(path[-1], lvl):
-##                c.create_text([i+12 for i in cntr(path[-1])], text="BREAK") # окончание пути, смещённое на 12 точек
-
     root.mainloop()
 
-filename = tkinter.filedialog.askopenfilename(filetypes=(("BIM JSON", "*.json"),))
+
+filename = filedialog.askopenfilename(filetypes=(("BIM JSON", "*.json"),))
 if not filename:
     exit()
 with open(filename) as f:
     j = json.load(f)
-    
+
 m = Moving(j)
 dens = tkinter.simpledialog.askfloat("Плотность", "Задайте плотность, чел/м2", initialvalue=0.5, minvalue=0.0, maxvalue=1.0)
 if dens is None:
@@ -181,14 +177,17 @@ m.set_density(dens)
 m.set_people_by_density()
 
 out_doors = [el for lvl in j['Level'] for el in lvl['BuildElement'] if el['Sign'] == "DoorWayOut"]
-door = tkinter.simpledialog.askinteger("Дверь нарушителя", "Задайте номер двери, через которую войдёт нарушитель (пронумерованы при запуске)", initialvalue=0, minvalue=0, maxvalue=len(out_doors))
+door = tkinter.simpledialog.askinteger("Дверь нарушителя", "Задайте номер двери, через которую войдёт нарушитель (номера будут показаны в начале визуализации)",
+                                       initialvalue=0, minvalue=0, maxvalue=len(out_doors))
 if door is None:
     exit()
-i = Intruder(j, door, precalculate_path=True)
-i.speed = tkinter.simpledialog.askinteger("Скорость нарушителя", "Задайте скорость нарушителя, м/мин", initialvalue=60, minvalue=1, maxvalue=200)
-if i.speed is None:
+prec = tkinter.messagebox.askyesno("Режим нарушителя", "Расчитать путь нарушителя при старте, чтобы движение людей не влияло на путь?")
+i_type = tkinter.simpledialog.askinteger("Тип нарушителя", "Задайте тип нарушителя, 1 для простого нарушителя", initialvalue=1, minvalue=1, maxvalue=3)
+if i_type is None:
     exit()
-evac = tkinter.simpledialog.askinteger("Режим", "Задайте режим (0-без эвакуации, 1-с ней)", initialvalue=1, minvalue=0, maxvalue=1)
-if evac is None:
+i_speed = tkinter.simpledialog.askinteger("Скорость нарушителя", "Задайте скорость нарушителя, м/мин", initialvalue=60, minvalue=1, maxvalue=200)
+if i_speed is None:
     exit()
-visualization(m, i, is_evac=bool(evac))
+i = Intruder(j, door, precalculate_path=prec, intruder_type=i_type, intruder_speed=i_speed)
+evac = tkinter.messagebox.askyesno("Режим эвакуации", "Эвакуировать людей? Если нет, то люди не будут двигаться.")
+visualization(m, i, is_evac=evac)

@@ -1,7 +1,5 @@
 import math
-import sys
 from operator import itemgetter, truediv
-from copy import deepcopy
 from BimEvac import cntr_real
 
 
@@ -16,7 +14,7 @@ class Intruder:
 
     def get_door(self, room1, room2):
         if room1 == room2:
-            # raise ValueError("Get_door: same room as arguments! "+room1["Name"])
+            print("Get_door: same room as arguments! "+room1["Name"])
             return
         for door1 in room1["Output"]:
             for door2 in room2["Output"]:
@@ -61,15 +59,7 @@ class Intruder:
         return path, max_eff + eff
 
     def vision(self, room, vis, curr_path, lvl=0):
-        if len(curr_path) == 2:  # в пути только 2 помещения, не можем взять 2 двери
-            ob1 = curr_path[0]
-        elif len(curr_path) >= 3:
-            ob1 = self.get_door(curr_path[-2], curr_path[-3])
-        else:
-            print("ERROR! Intruder outside?")
-            sys.exit()
-        ob2 = self.get_door(curr_path[-1], curr_path[-2])
-        curr_room_dist = math.dist(cntr_real(ob1), cntr_real(ob2))
+        curr_room_dist = math.dist(cntr_real(curr_path[-1]), cntr_real(curr_path[-2]))
         if lvl >= self.vision_lvl:
             return room["NumPeople"], curr_room_dist
         vis[room["Id"]] += 1
@@ -102,13 +92,16 @@ class Intruder:
 
             # если непосещённых нет, идём назад, но не назад в назад
             for back in reversed(curr_path):
+                if room == back:
+                    continue
                 door = self.get_door(room, back)
                 if door and vis[door["Id"]] <= 1:
                     return [back]
             return []  # ???
 
-    def __init__(self, j, choosen_door, disabled_rooms=[], precalculate_path=False):
-        self.intruder_type = 1
+    def __init__(self, j, choosen_door, disabled_rooms=[], precalculate_path=False, intruder_type=1, intruder_speed=60):
+        self.intruder_type = intruder_type
+        self.vision_lvl = 3
         self.j = j
         self.disabled_rooms = disabled_rooms
         top_door = self.get_out_doors()[choosen_door]
@@ -120,21 +113,23 @@ class Intruder:
         self.bim_curr_path = [top_door, top_room]
         self.bim_visits[top_door["Id"]] += 1
         self.bim_visits[top_room["Id"]] += 1
-        self.speed = 100.0
+        self.speed = intruder_speed
         self.precalculate_path = precalculate_path
         if precalculate_path:
             self.p_path = self.step(self.get_el(top_door["Id"]), top_room, self.bim_visits.copy(), [])[0][1:]
-
 
     def step_next(self):
         if self.precalculate_path:
             self.bim_curr_path.append(self.p_path.pop(0))
             return
         from_room, to_room = self.bim_curr_path[-2:]
-        best_path, best_eff = self.step(from_room, to_room, self.bim_visits.copy(), [])
+        best_path, best_eff = self.step(from_room, to_room, self.bim_visits.copy(), self.bim_curr_path.copy())
+        best_path = best_path[len(self.bim_curr_path):]
         if len(best_path) > 1:
             self.bim_visits[best_path[1]["Id"]] += 1
             self.bim_curr_path += [best_path[1]]
+        else:
+            print("INTRUDER NO PATH")
 
     def path_len(self):
         len_path = 0
