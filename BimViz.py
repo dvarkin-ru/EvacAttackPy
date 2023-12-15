@@ -124,7 +124,10 @@ def visualization(moving, intruder, is_evac=True):
         h.config(command=c.xview)
         c.config(xscrollcommand=h.set, yscrollcommand=v.set)
         c.pack(side=tkinter.LEFT, expand=True, fill=tkinter.BOTH)
-        # top.attributes("-zoomed", True)
+        try:
+            top.attributes("-zoomed", True)
+        except tkinter.TclError:
+            top.wm_state("zoomed")
         cs.append((lvl, c))
 
     def intr_line(fr_room, to_room):
