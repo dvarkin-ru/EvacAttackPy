@@ -84,11 +84,11 @@ def visualization(moving, intruder, is_evac=True):
                 if e in moving.transits:
                     c.itemconfigure(texts[e], text="{:6.2f}".format(abs(moving.transits[e]["NumPeople"])))
                     if abs(moving.transits[e]["NumPeople"]) < 0.0001:
-                        c.itemconfigure(arrows[e], arrow=tkinter.NONE)
+                        c.itemconfigure(arrows[e], arrow=tkinter.NONE, fill=moving.transits[e].get("Color"))
                     elif moving.transits[e]["NumPeople"] > 0:
-                        c.itemconfigure(arrows[e], arrow=tkinter.LAST)
+                        c.itemconfigure(arrows[e], arrow=tkinter.LAST, fill=moving.transits[e].get("Color"))
                     elif moving.transits[e]["NumPeople"] < 0:
-                        c.itemconfigure(arrows[e], arrow=tkinter.FIRST)
+                        c.itemconfigure(arrows[e], arrow=tkinter.FIRST, fill=moving.transits[e].get("Color"))
                 if e in moving.zones:
                     c.itemconfigure(texts[e], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
         nop = sum([x["NumPeople"] for x in moving.zones.values() if x["IsVisited"]])
@@ -178,6 +178,15 @@ if dens is None:
     exit()
 m.set_density(dens)
 m.set_people_by_density()
+
+# Распределяем цвета
+##fancy_colors = ["gold", "silver", "cobalt", "brick", "banana", "orange", "carrot", "olive", "melon", "plum", "chocolate",
+##                "peacock", "raspberry", "tomato1", "mint", "forestgreen", "coral", "orchid"] # not working
+##fancy_colors = ["chocolate", "LemonChiffon4", "PeachPuff4", "olive", "tomato4", "forest green", "peru", "coral4",
+##                "orchid4", "bisque4", "seashell4", "old lace", "wheat", "gold", "silver", "orange", "plum", "lime",  "lavender"]
+fancy_colors = ["cyan", "magenta", "chocolate", "green", "blue"] * 10
+for col, zone in zip(fancy_colors, m.safety_zones):
+    zone["Color"] = col
 
 out_doors = [el for lvl in j['Level'] for el in lvl['BuildElement'] if el['Sign'] == "DoorWayOut"]
 door = tkinter.simpledialog.askinteger("Дверь нарушителя", "Задайте номер двери, через которую войдёт нарушитель (номера будут показаны в начале визуализации)",
