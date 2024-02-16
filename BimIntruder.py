@@ -119,7 +119,7 @@ class Intruder:
             self.p_path = self.step(self.get_el(top_door["Id"]), top_room, self.bim_visits.copy(), [])[0][1:]
 
     def step_next(self):
-        if self.precalculate_path:
+        if self.precalculate_path and self.p_path:
             self.bim_curr_path.append(self.p_path.pop(0))
             return
         from_room, to_room = self.bim_curr_path[-2:]
