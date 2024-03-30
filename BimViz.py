@@ -84,11 +84,14 @@ def visualization(moving, intruder, is_evac=True):
                 if e in moving.transits:
                     c.itemconfigure(texts[e], text="{:6.2f}".format(abs(moving.transits[e]["NumPeople"])))
                     if abs(moving.transits[e]["NumPeople"]) < 0.0001:
-                        c.itemconfigure(arrows[e], arrow=tkinter.NONE, fill=moving.transits[e].get("Color"))
+                        c.itemconfigure(arrows[e], arrow=tkinter.NONE, fill=moving.transits[e].get("Color"),
+                            arrowshape=(16, 20, 6))
                     elif moving.transits[e]["NumPeople"] > 0:
-                        c.itemconfigure(arrows[e], arrow=tkinter.LAST, fill=moving.transits[e].get("Color"))
+                        c.itemconfigure(arrows[e], arrow=tkinter.LAST, fill=moving.transits[e].get("Color"),
+                            arrowshape=(16, 20, 6))
                     elif moving.transits[e]["NumPeople"] < 0:
-                        c.itemconfigure(arrows[e], arrow=tkinter.FIRST, fill=moving.transits[e].get("Color"))
+                        c.itemconfigure(arrows[e], arrow=tkinter.FIRST, fill=moving.transits[e].get("Color"),
+                            arrowshape=(16, 20, 6))
                 if e in moving.zones:
                     c.itemconfigure(texts[e], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
         nop = sum([x["NumPeople"] for x in moving.zones.values() if x["IsVisited"]])
