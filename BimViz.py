@@ -6,7 +6,7 @@ from BimIntruder import Intruder
 import math
 from pprint import pformat
 
-scale = 50
+scale = 18
 
 
 def is_el_on_lvl(el, lvl):
@@ -77,23 +77,26 @@ def visualization(moving, intruder, is_evac=True):
 
         time_lbl.config(text="Визуализация идёт {:6.2f} секунд".format(moving.time*60))
         for lvl, c in cs:
-            texts = text_id[lvl[moving.lvlname]]
-            arrows = arrow_id[lvl[moving.lvlname]]
             for el in lvl['BuildElement']:
                 e = el["Id"]
+                cv_els = el_id_to_cv.get(e)
+                if cv_els is None:
+                    continue
                 if e in moving.transits:
-                    c.itemconfigure(texts[e], text="{:6.2f}".format(abs(moving.transits[e]["NumPeople"])))
-                    if abs(moving.transits[e]["NumPeople"]) < 0.0001:
-                        c.itemconfigure(arrows[e], arrow=tkinter.NONE, fill=moving.transits[e].get("Color"),
-                            arrowshape=(16, 20, 6))
-                    elif moving.transits[e]["NumPeople"] > 0:
-                        c.itemconfigure(arrows[e], arrow=tkinter.LAST, fill=moving.transits[e].get("Color"),
-                            arrowshape=(16, 20, 6))
-                    elif moving.transits[e]["NumPeople"] < 0:
-                        c.itemconfigure(arrows[e], arrow=tkinter.FIRST, fill=moving.transits[e].get("Color"),
-                            arrowshape=(16, 20, 6))
+                    c.itemconfigure(cv_els["text"], text="{:6.2f}".format(abs(moving.transits[e]["NumPeople"])))
+                    if cv_els.get("arrow") is not None:
+                        if abs(moving.transits[e]["NumPeople"]) < 0.0001:
+                            c.itemconfigure(cv_els["arrow"], arrow=tkinter.NONE, fill=moving.transits[e].get("Color"),
+                                arrowshape=(16, 20, 6))
+                        elif moving.transits[e]["NumPeople"] > 0:
+                            c.itemconfigure(cv_els["arrow"], arrow=tkinter.LAST, fill=moving.transits[e].get("Color"),
+                                arrowshape=(16, 20, 6))
+                        elif moving.transits[e]["NumPeople"] < 0:
+                            c.itemconfigure(cv_els["arrow"], arrow=tkinter.FIRST, fill=moving.transits[e].get("Color"),
+                                arrowshape=(16, 20, 6))
                 if e in moving.zones:
-                    c.itemconfigure(texts[e], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
+                    c.itemconfigure(cv_els["text"], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
+                    c.itemconfigure(cv_els["polygon"], fill=moving.zones[e].get("Color"))
         nop = sum([x["NumPeople"] for x in moving.zones.values() if x["IsVisited"]])
         if intruder.precalculate_path and intruder.p_path:
             return
@@ -141,31 +144,27 @@ def visualization(moving, intruder, is_evac=True):
 
     intr_line(intruder.bim_curr_path[-2], intruder.bim_curr_path[-1])
 
-    text_id = dict()  # id текстовых объектов на каждом canvas
-    arrow_id = dict()
+    el_id_to_cv = dict()  # id текстовых объектов на каждом canvas
     # Рисуем фон
     colors = {"Room": "", "DoorWayInt": "yellow", "DoorWayOut": "brown", "DoorWay": "", "Staircase": "green"}
     for lvl, c in cs:
-        texts = dict()
-        arrows = dict()
-        text_id[lvl[moving.lvlname]] = texts
-        arrow_id[lvl[moving.lvlname]] = arrows
         for el in lvl['BuildElement']:
             p = c.create_polygon([crd(x, y) for x, y in points(el)], fill=colors[el['Sign']], outline='black')
             c.tag_bind(p, "<Button-1>", lambda e, el=el: tkinter.messagebox.showinfo("Инфо об объекте", pformat(el, compact=True, depth=2)))
             num_p = 0
             if el.get('NumPeople'):
                 num_p = el.get('NumPeople')
-            texts[el["Id"]] = c.create_text(cntr(el), text="{:6.2f}".format(num_p))
+            t = c.create_text(cntr(el), text="{:6.2f}".format(num_p))
+            el_id_to_cv[el["Id"]] = {"polygon": p, "text": t}
             if 'Door' in el["Sign"]:
                 zps = points(m.zones[m.transits[el["Id"]]["Output"][0]])
                 ps = points(el)
                 for p1, p2 in zip(ps, ps[1:]+ps[:1]):
                     if _point_in_polygon(p1, zps) and not _point_in_polygon(p2, zps):
-                        arrows[el["Id"]] = c.create_line(crd(*p1), crd(*p2), arrow=tkinter.NONE)
+                        el_id_to_cv[el["Id"]]["arrow"] = c.create_line(crd(*p1), crd(*p2), arrow=tkinter.NONE)
                         break
                 if 'DoorWayOut' in el["Sign"]:
-                    c.itemconfigure(texts[el["Id"]], text=out_doors.index(el))
+                    c.itemconfigure(t, text=out_doors.index(el))
     root.mainloop()
 
 

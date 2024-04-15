@@ -173,9 +173,11 @@ class Moving(object):
         for t in self.transits.values():
             t["IsVisited"] = False
             t["NumPeople"] = 0.0
+            t["Color"] = None
         for z in self.zones.values():
             z["IsVisited"] = False
             z["Potential"] = math.inf
+            z["Color"] = None
 
         zones_to_process = self.safety_zones.copy()
         self._step_counter[1] = 0
@@ -213,10 +215,13 @@ class Moving(object):
                     receiving_zone["Density"] = receiving_zone["NumPeople"] / receiving_zone["Area"]
                 giving_zone["Density"] = giving_zone["NumPeople"] / giving_zone["Area"]
 
+                transit["Color"] = receiving_zone.get("Color")
+                giving_zone["Color"] = receiving_zone.get("Color")
+
                 giving_zone["IsVisited"] = True
                 transit["IsVisited"] = True
 
-                if len(giving_zone["Output"]) > 1:  # отсекаем помещения, в которых одна дверь
+                if len(giving_zone["Output"]) > 1 and giving_zone not in zones_to_process:  # отсекаем помещения, в которых одна дверь
                     zones_to_process.append(giving_zone)
 
                 new_pot = self.potential(receiving_zone, giving_zone, transit["Width"])
@@ -228,25 +233,6 @@ class Moving(object):
 
             self._step_counter[1] += 1
         self.time += self.MODELLING_STEP
-        zones_to_process = self.safety_zones.copy()
-        for t in self.transits.values():
-            t["IsVisited"] = False
-        while len(zones_to_process) > 0:
-            receiving_zone = zones_to_process.pop(0)
-            for transit in (self.transits[tid] for tid in receiving_zone["Output"]):
-                if transit["IsVisited"] or transit["IsBlocked"]:
-                    continue
-                if transit["NumPeople"] > 0:
-                    g_zone, r_zone = transit["Output"][0], transit["Output"][-1]
-                else:
-                    g_zone, r_zone = transit["Output"][-1], transit["Output"][0]
-                if self.zones[g_zone]["IsBlocked"]:
-                    continue
-                if r_zone == receiving_zone.get("Id") or receiving_zone["Sign"] == "SZ":
-                    zones_to_process.append(self.zones[g_zone])
-                    transit["Color"] = receiving_zone["Color"]
-                    self.zones[g_zone]["Color"] = receiving_zone["Color"]
-                    transit["IsVisited"] = True
 
     def potential(self, rzone, gzone, twidth):
         p = math.sqrt(gzone["Area"]) / self.speed_at_exit(rzone, gzone, twidth)
