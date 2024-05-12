@@ -1,24 +1,6 @@
 import math
 import json
-
-def points(el):
-    if "points" in el["XY"][0]:
-        return [(xy["x"], xy["y"]) for xy in el["XY"][0]["points"]]
-    else:
-        return el["XY"][0][:-1]
-
-
-def room_area(el):
-    # print(xy)
-    xy = points(el)
-    return math.fabs(0.5*sum((x1*y2-x2*y1 for (x1,y1),(x2,y2) in zip(xy, xy[1:]+xy[:1]))))
-
-
-def cntr_real(el):
-    ''' Центр в координатах здания '''
-    xy = points(el)
-    return sum((x for x, y in xy)) / len(xy), sum((y for x, y in xy)) / len(xy)
-
+from EvacAttackShared import points, room_area, cntr_real
 
 class PeopleFlowVelocity(object):
     ROOM, TRANSIT, STAIR_UP, STAIR_DOWN = range(4)

@@ -1,13 +1,6 @@
 import math
 from operator import itemgetter, truediv
-from BimEvac import cntr_real
-
-
-def dict_peak(d, key, reverse):
-    ''' Возвращает крайние элементы словаря d по ключу key,
-    это минимальные элементы если reverse == False, иначе максимальные '''
-    d = sorted(d, key=itemgetter(key), reverse=reverse)
-    return [i for i in d if i[key] == d[0][key]]
+from EvacAttackShared import cntr_real, dict_peak
 
 
 class Intruder:
@@ -99,7 +92,7 @@ class Intruder:
                     return [back]
             return []  # ???
 
-    def __init__(self, j, choosen_door, disabled_rooms=[], precalculate_path=False, intruder_type=1, intruder_speed=60):
+    def __init__(self, j, choosen_door, precalculate_path=False, intruder_type=1, intruder_speed=60, disabled_rooms=[]):
         self.intruder_type = intruder_type
         self.vision_lvl = 3
         self.j = j
