@@ -155,11 +155,11 @@ class Moving(object):
         for t in self.transits.values():
             t["IsVisited"] = False
             t["NumPeople"] = 0.0
-            t["Color"] = None
+            t["Color"] = ""
         for z in self.zones.values():
             z["IsVisited"] = False
             z["Potential"] = math.inf
-            z["Color"] = None
+            z["Color"] = ""
 
         zones_to_process = self.safety_zones.copy()
         self._step_counter[1] = 0
@@ -197,9 +197,6 @@ class Moving(object):
                     receiving_zone["Density"] = receiving_zone["NumPeople"] / receiving_zone["Area"]
                 giving_zone["Density"] = giving_zone["NumPeople"] / giving_zone["Area"]
 
-                transit["Color"] = receiving_zone.get("Color")
-                giving_zone["Color"] = receiving_zone.get("Color")
-
                 giving_zone["IsVisited"] = True
                 transit["IsVisited"] = True
 
@@ -209,6 +206,8 @@ class Moving(object):
                 new_pot = self.potential(receiving_zone, giving_zone, transit["Width"])
                 if new_pot < giving_zone["Potential"]:
                     giving_zone["Potential"] = new_pot
+                    giving_zone["Color"] = receiving_zone.get("Color")
+                    transit["Color"] = receiving_zone.get("Color")
                 zones_to_process.sort(key=lambda d: d["Potential"])
 
                 self._step_counter[2] += 1
