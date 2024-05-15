@@ -323,9 +323,14 @@ if __name__ == "__main__":
             moving.step()
             num_steps += 1
         x = [i*moving.MODELLING_STEP*60 for i in range(num_steps)]
-        plt.figure(str(dens))
+        plt.figure()
         plt.margins(x=0, y=0)
+        plt.title("График зависимости от времени кол-ва людей в безопасных зонах при начальной плотности "+str(dens))
+        plt.xlabel('t, сек')
+        plt.ylabel('N, кол-во человек в зоне безопасности')
+        plt.grid()
         for sz, sz_people in szones:
             plt.plot(x, sz_people, label=sz["Output"][0])
+        plt.plot(x, [sum(x) for x in zip(*(sz_people for sz, sz_people in szones))], label="Интегральная кривая")
         plt.legend()
     plt.show()
