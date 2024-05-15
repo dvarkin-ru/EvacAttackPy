@@ -120,7 +120,7 @@ class PeopleFlowVelocity(object):
 
 class Moving(object):
     MODELLING_STEP = 0.008  # мин.
-    MIN_DENSIY = 0.1  # чел./м2
+    MIN_DENSIY = 0.01  # чел./м2
     MAX_DENSIY = 5.0  # чел./м2
 
     def __init__(self, bim) -> None:
@@ -300,110 +300,32 @@ class Moving(object):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     import argparse
-    parser = argparse.ArgumentParser(description='Bim modeling of evacuation when attack')
+    parser = argparse.ArgumentParser(description='Bim modeling of evacuation')
     parser.add_argument('file', type=argparse.FileType('r'))  # file already opened by argparse
     args = parser.parse_args()
 
     bim = json.load(args.file)
-    # args.file.close()
-    # BimComplexity(bim)  # check a building
+    moving = Moving(bim)
 
-    # density = 1.0
-    # for z in wo_safety:
-    #     # if '5c4f4' in str(z.id):
-    #     # if '7e466' in str(z.id) or '02707' in str(z.id):
-    #     z.num_of_people = density * z.area
-
-    D_corridor_m2m2 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]  # м2/м2
-    D = [i / 100 for i in range(1, 16)]
-    D_cor = [d / 0.1 for d in D_corridor_m2m2]
-    D_dis = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]  # ч/м2
-    T_corridor = [15.0, 20.0, 25.5, 30.0, 36.4, 42.9, 52.2, 63.2, 80.0]  # сек.
-    T_c_cor = [18.6, 24.0, 29.4, 35.4, 42.6, 50.4, 58.2, 66.6, 74.4]
-    # T_c_3 = [886.8, 1748.4, 2602.2, 3432.0, 4229.4, 5074.2, 5919.0, 6764.4, 7609.8]
-    T_dis = [55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115]
-    T_c_dis = [175.20, 195.60, 214.2, 229.20, 244.20, 260.40, 273.00, 286.80, 303.60, 315.00, 330.00, 346.20, 370.20]
-
-    times = []  # сек.
-
-    for density in D_cor if 'corridor' in args.file.name else D_dis if 'disbuild' in args.file.name else D:
-        m = Moving(bim)
-
-        # Doors width
-        #for t in m.transits.values():
-            #t.width = 2.0
-            #door_points = points(t)
-            #print(t["Name"], max(math.dist(p1,p2) for p1, p2 in zip(door_points, door_points[1:]+door_points[:1])))
-
-        m.set_density(density)
-        m.set_people_by_density()
-        for z in m.safety_zones:
-            z["NumPeople"] = 0.0
-
-##        num_of_people = 0.0
-##        for z in m.zones.values():
-##            print(z.num_of_people)
-##            num_of_people += z["NumPeople"]
-
-        # for z in bim.zones.values():
-        #     print(f"{z}, Potential: {z.potential}, Number of people: {z.num_of_people}, Density: {z.density}")
-
-        time = 0.0
-        for _ in range(10000):
-            m.step()
-            # print(m.direction_pairs)
-            time += Moving.MODELLING_STEP
-##            for z in m.zones.values():
-##                print(z, "Number of people:", z["NumPeople"])
-##            for t in m.transits.values():
-##                if t["Sign"] == "DoorWayOut":
-##                    #pass
-##                    print(t, "Number of people:", t["NumPeople"])
-
-            nop = sum([x["NumPeople"] for x in m.zones.values() if x["IsVisited"]])
-            # if nop < 10e-3:
-            if nop <= 0:
-                break
-        else:
-            print("# Error! ", end="")
-
-        nop_sz = sum(z["NumPeople"] for z in m.safety_zones)
-        print(f"Количество человек: {nop_sz:.{4}} Длительность эвакуации: {time*60:.{4}} с. ({time:.{4}} мин.)")
-        print("По зонам:", *(round(z["NumPeople"]) for z in m.safety_zones))
-        nop = sum([x["NumPeople"] for x in m.zones.values()])
-        print("Осталось", nop)
-        times.append(time * 60)
-
-
-    #for i in range(len(T)):
-    #    p.append(round(T_c[i] / times[i], 2))
-    #print(p)
-
-    # plot
-    plot = True
-    if plot:
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        if 'corridor' in args.file.name:
-            ax.plot(D_cor, T_corridor, linewidth=2.0, label="Original")
-            ax.plot(D_cor, T_c_cor, linewidth=2.0, label="EvacuationC")
-            ax.plot(D_cor, times, linewidth=2.0, label="EvacuationPy")
-            plt.xticks(D_cor)
-            plt.xlim([D_cor[0], D_cor[-1]])
-        elif 'disbuild' in args.file.name:
-            ax.plot(D_dis, T_c_dis, linewidth=2.0, label="EvacuationC")
-            ax.plot(D_dis, times, linewidth=2.0, label="EvacuationPy")
-            ax.plot(D_dis, T_dis, linewidth=2.0, label="Рис. 3.23 линия 2")
-            plt.xticks(D_dis)
-            plt.xlim([D_dis[0], D_dis[-1]])
-        else:
-            ax.plot(D, times, linewidth=2.0, label="EvacuationPy")
-            plt.xticks(D)
-            plt.xlim([D[0], D[-1]])
-
-        plt.ylim(bottom=0)
-        plt.grid(True)
-
-        plt.legend()  # pyright: ignore [reportUnknownMemberType]
-        plt.show()  # pyright: ignore [reportUnknownMemberType]
+    for dens in (0.1, 0.2, 0.3):
+        szones = [(z, [0, ]) for z in moving.safety_zones]
+        for zone in moving.safety_zones:
+            zone["NumPeople"] = 0
+        moving.set_density(dens)
+        moving.set_people_by_density()
+        moving.step()
+        num_steps = 1
+        while sum([x["NumPeople"] for x in moving.zones.values() if x["IsVisited"]]) > 0:
+            for i in range(len(szones)):
+                szones[i][1].append(szones[i][0]["NumPeople"])
+            moving.step()
+            num_steps += 1
+        x = [i*moving.MODELLING_STEP*60 for i in range(num_steps)]
+        plt.figure(str(dens))
+        plt.margins(x=0, y=0)
+        for sz, sz_people in szones:
+            plt.plot(x, sz_people, label=sz["Output"][0])
+        plt.legend()
+    plt.show()
