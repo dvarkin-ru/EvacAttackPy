@@ -1,6 +1,7 @@
 import math
 import json
 from EvacAttackShared import points, room_area, cntr_real
+from math import exp
 
 class PeopleFlowVelocity(object):
     ROOM, TRANSIT, STAIR_UP, STAIR_DOWN = range(4)
@@ -120,7 +121,7 @@ class PeopleFlowVelocity(object):
 
 class Moving(object):
     MODELLING_STEP = 0.008  # мин.
-    MIN_DENSIY = 0.01  # чел./м2
+    MIN_DENSIY = 0.00001  # чел./м2
     MAX_DENSIY = 5.0  # чел./м2
 
     def __init__(self, bim) -> None:
@@ -331,6 +332,11 @@ if __name__ == "__main__":
         plt.grid()
         for sz, sz_people in szones:
             plt.plot(x, sz_people, label=sz["Output"][0])
-        plt.plot(x, [sum(x) for x in zip(*(sz_people for sz, sz_people in szones))], label="Интегральная кривая")
+        s = [sum(x) for x in zip(*(sz_people for sz, sz_people in szones))]
+        plt.plot(x, s, label="Интегральная кривая")
+        xi = 2.043
+        omega = 0.32
+        Te = 115.45+725.76*dens+103.38*omega
+        plt.plot(x, [s[-1]-s[-1]*exp(-xi*(i/Te)) for i in x], label="N0-N(dt) по формуле 2 из статьи")
         plt.legend()
     plt.show()
