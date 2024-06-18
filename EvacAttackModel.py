@@ -22,9 +22,9 @@ class EvacAttackModel:
         else:
             self.moving.time += self.moving.MODELLING_STEP
         if self.intruder and self.intruder.path_len()/self.intruder.speed < self.moving.time:
-            self.intruder.step_next()
             i_room = self.intruder.bim_curr_path[-1]["Id"]
             self.moving.zones[i_room]["IsBlocked"] = False
+            self.intruder.step_next()
             i_room = self.intruder.bim_curr_path[-1]["Id"]
             self.moving.zones[i_room]["IsBlocked"] = True
             self.intruder.victims += self.moving.zones[i_room]["NumPeople"]
