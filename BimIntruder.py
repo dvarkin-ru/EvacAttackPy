@@ -37,11 +37,12 @@ class Intruder:
                 if e['Id'] == el_id:
                     return e
 
-    def step(self, from_room, to_room, vis, curr_path):
+    def step(self, from_room, to_room, vis, curr_path, first=False):
         ''' Рекурсивная функция '''
         door = from_room if from_room["Sign"] == 'DoorWayOut' else self.get_door(from_room, to_room)  # для входа
-        vis[door["Id"]] += 1
-        vis[to_room["Id"]] += 1
+        if not first:
+            vis[door["Id"]] += 1
+            vis[to_room["Id"]] += 1
         eff = to_room['NumPeople']
         variants = [self.step(to_room, next_to_room, vis.copy(), curr_path + [to_room]) for next_to_room in self.step_variants(to_room, vis.copy(), curr_path + [to_room])]
         # Условия прекращения рекурсии
@@ -116,13 +117,14 @@ class Intruder:
             self.bim_curr_path.append(self.p_path.pop(0))
             return
         from_room, to_room = self.bim_curr_path[-2:]
-        best_path, best_eff = self.step(from_room, to_room, self.bim_visits.copy(), self.bim_curr_path.copy())
+        best_path, best_eff = self.step(from_room, to_room, self.bim_visits.copy(), self.bim_curr_path.copy(), first=True)
         best_path = best_path[len(self.bim_curr_path):]
         if len(best_path) > 1:
             self.bim_visits[best_path[1]["Id"]] += 1
+            self.bim_visits[self.get_door(best_path[0], best_path[1])["Id"]] += 1
             self.bim_curr_path += [best_path[1]]
         else:
-            print("INTRUDER NO PATH")
+            pass # print("INTRUDER NO PATH")
 
     def path_len(self):
         len_path = 0
