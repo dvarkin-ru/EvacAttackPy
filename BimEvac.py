@@ -121,7 +121,7 @@ class PeopleFlowVelocity(object):
 
 class Moving(object):
     MODELLING_STEP = 0.008  # мин.
-    MIN_DENSIY = 0.00001  # чел./м2
+    MIN_DENSIY = 0.005  # чел./м2
     MAX_DENSIY = 5.0  # чел./м2
 
     def __init__(self, bim) -> None:
