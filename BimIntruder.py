@@ -32,17 +32,17 @@ class Intruder:
 
     def get_el(self, el_id):
         ''' Находит элемент по Id '''
-        for lvl in self.j['Level']:
-            for e in lvl['BuildElement']:
-                if e['Id'] == el_id:
-                    return e
+        return self.bim_el.get(el_id)
+        # for lvl in self.j['Level']:
+        #     for e in lvl['BuildElement']:
+        #         if e['Id'] == el_id:
+        #             return e
 
-    def step(self, from_room, to_room, vis, curr_path, first=False):
+    def step(self, from_room, to_room, vis, curr_path):
         ''' Рекурсивная функция '''
         door = from_room if from_room["Sign"] == 'DoorWayOut' else self.get_door(from_room, to_room)  # для входа
-        if not first:
-            vis[door["Id"]] += 1
-            vis[to_room["Id"]] += 1
+        vis[door["Id"]] += 1
+        vis[to_room["Id"]] += 1
         eff = to_room['NumPeople']
         variants = [self.step(to_room, next_to_room, vis.copy(), curr_path + [to_room]) for next_to_room in self.step_variants(to_room, vis.copy(), curr_path + [to_room])]
         # Условия прекращения рекурсии
@@ -97,6 +97,7 @@ class Intruder:
         self.intruder_type = intruder_type
         self.vision_lvl = 3
         self.j = j
+        self.bim_el = {e['Id']: e for lvl in self.j['Level'] for e in lvl['BuildElement']}
         self.disabled_rooms = disabled_rooms
         top_door = self.get_out_doors()[choosen_door]
         top_room = self.get_el(top_door['Output'][0])
@@ -113,16 +114,21 @@ class Intruder:
             self.p_path = self.step(self.get_el(top_door["Id"]), top_room, self.bim_visits.copy(), [])[0][1:]
 
     def step_next(self):
-        if self.precalculate_path and self.p_path:
-            self.bim_curr_path.append(self.p_path.pop(0))
-            return
-        from_room, to_room = self.bim_curr_path[-2:]
-        best_path, best_eff = self.step(from_room, to_room, self.bim_visits.copy(), self.bim_curr_path.copy(), first=True)
-        best_path = best_path[len(self.bim_curr_path):]
-        if len(best_path) > 1:
-            self.bim_visits[best_path[1]["Id"]] += 1
-            self.bim_visits[self.get_door(best_path[0], best_path[1])["Id"]] += 1
-            self.bim_curr_path += [best_path[1]]
+        if self.precalculate_path:
+            nextp = self.p_path.pop(0) if self.p_path else None
+        elif self.intruder_type==1:
+            # Повторяем последний шаг и берём путь дальше
+            nextp, next_eff = self.step(*self.bim_curr_path[-2:], self.bim_visits.copy(), self.bim_curr_path.copy())
+            if len(nextp) > len(self.bim_curr_path)+1:
+                nextp = nextp[len(self.bim_curr_path)+1]
+            else:
+                nextp = None
+        else:
+            nextp = self.step_variants(self.bim_curr_path[-1], self.bim_visits, self.bim_curr_path)[0]
+        if nextp:
+            self.bim_visits[nextp["Id"]] += 1
+            self.bim_visits[self.get_door(self.bim_curr_path[-1], nextp)["Id"]] += 1
+            self.bim_curr_path.append(nextp)
         else:
             pass # print("INTRUDER NO PATH")
 
