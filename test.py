@@ -5,9 +5,13 @@ import csv
 builds = [
     ["../EvacuationPy/resources/udsu_block_1.json", 0],
     ["../EvacuationPy/resources/udsu_block_2.json", 9],
-    ["../EvacuationPy/resources/udsu_block_3.json", 2],]
+    ["../EvacuationPy/resources/udsu_block_3.json", 2]]
 i_res = []
-for intr_type in (1, 2, 3):
+i_types = (1, 2, 3)
+speeds = (20, 30, 40, 50, 60, 70, 80)
+denss = (0.1, 0.2, 0.3)
+
+for intr_type in i_types:
     for build, door in builds:
         i_res.append([build.split("/")[-1], "нарушитель", intr_type])
         print(build.split("/")[-1], "нарушитель", intr_type)
@@ -18,9 +22,9 @@ for intr_type in (1, 2, 3):
         for zone in model.moving.safety_zones:
             zone["Color"] = zone["Output"][0]
 
-        for speed in (30, 60, 90):
+        for speed in speeds:
             res = []
-            for dens in (0.1, 0.2, 0.3):
+            for dens in denss:
                 model.moving.set_density(dens)
                 model.moving.set_people_by_density()
                 model.set_intruder(door, intr_type==1, intr_type, speed)
